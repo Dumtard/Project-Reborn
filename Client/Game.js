@@ -172,15 +172,35 @@ class Game {
         if (updateDelta >= 0.03125) {
             updateDelta -= 0.03125;
 
+            //gravity system
+            entity.velocity.y += 20;
+
+            //input system
+            entity.velocity.x = 0;
             var input = {};
             if (keyboard[65]) {
                 input[65] = true;
+                entity.velocity.x = -100;
             } else if (keyboard[68]) {
                 input[68] = true;
+                entity.velocity.x = 100;
             }
             if (keyboard[32]) {
                 input[32] = true;
+                entity.velocity.y = -300;
             }
+
+            //movement system
+            entity.position.x += entity.velocity.x * 0.03125;
+            entity.position.y += entity.velocity.y * 0.03125;
+
+            //collision system
+            if (entity.position.y > 100) {
+                entity.position.y = 100;
+                entity.velocity.y =  0;
+            }
+
+            //console.log(entity.position);
 
             if (Object.keys(input).length > 0) {
                 input.id = inputID++;

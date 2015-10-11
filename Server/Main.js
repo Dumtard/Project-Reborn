@@ -53,9 +53,6 @@ setInterval(() => {
     while (updateDelta >= 0.03125) {
         updateDelta -= 0.03125;
 
-        entity.velocity.x = 0;
-
-        entity.velocity.y += 20;
 
         var input = inputs.shift();
         var keyboard = {};
@@ -68,6 +65,11 @@ setInterval(() => {
             processed = input.id;
         }
 
+        //gravity system
+        entity.velocity.y += 20;
+
+        //input system
+        entity.velocity.x = 0;
         if (keyboard[65]) {
             entity.velocity.x = -100;
         } else if (keyboard[68]) {
@@ -77,9 +79,11 @@ setInterval(() => {
             entity.velocity.y = -300;
         }
 
+        //movement system
         entity.position.x += entity.velocity.x * 0.03125;
         entity.position.y += entity.velocity.y * 0.03125;
 
+        //collision system
         if (entity.position.y > 100) {
             entity.position.y = 100;
             entity.velocity.y =  0;
