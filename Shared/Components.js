@@ -21,6 +21,12 @@ class PositionComponent extends Component {
     }
 }
 
+class PreviousPositionComponent extends Component {
+    constructor(data) {
+        super('previousPosition', ['x', 'y'], data);
+    }
+}
+
 class VelocityComponent extends Component {
     constructor(data) {
         super('velocity', ['x', 'y'], data);
@@ -35,6 +41,7 @@ class RenderComponent extends Component {
 
 module.exports = {
     position: PositionComponent,
+    previousPosition: PreviousPositionComponent,
     velocity: VelocityComponent,
     render: RenderComponent
 };
