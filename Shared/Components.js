@@ -39,9 +39,16 @@ class RenderComponent extends Component {
     }
 }
 
+class InputBufferComponent extends Component {
+  constructor(data) {
+    super('inputBuffer', ['history', 'tick', 'delta', 'time'], data);
+  }
+}
+
 module.exports = {
     position: PositionComponent,
     previousPosition: PreviousPositionComponent,
     velocity: VelocityComponent,
-    render: RenderComponent
+    render: RenderComponent,
+    inputBuffer: InputBufferComponent
 };

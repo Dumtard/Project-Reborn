@@ -1,312 +1,237 @@
-class EventEmitter {
-  constructor() {
-    this.listeners = [];
-  }
-  emit(event, data) {
-    if (typeof this.listeners[event] === 'undefined') {
-      return;
-    }
+//var EntityManager = require('../Shared/EntityManager');
+//
+//class Game {
+//  /**
+//   * @constructor
+//   */
+//  constructor() {
+//    window.onload = () => {
+//      this.initialize();
+//    };
+//  }
+//
+//  /**
+//   * Initializes the game class, called once on construction after pixi has
+//   * been loaded.
+//   */
+//  initialize() {
+//    this.delta = 0;
+//    this.runTime = 0;
+//    this.previous = Date.now() / 1000;
+//
+//    this.entityManager = new EntityManager();
+//
+//    var fps = document.createElement('div');
+//    fps.id = 'fpsCounter';
+//    fps.style.position = 'absolute';
+//    fps.style.top = '0px';
+//    fps.style.left = '0px';
+//    document.body.appendChild(fps);
+//
+//    window.setInterval(() => {
+//      var ele = document.getElementById('fpsCounter');
+//      ele.innerHTML = (1/this.delta).toFixed(2) + 'fps<br>' +
+//        this.delta.toFixed(3) + 's';
+//    }, 1000);
+//
+//    requestAnimationFrame(this.update.bind(this));
+//  }
+//
+//  /**
+//   * Main update function calls all other update functions in the correct order
+//   */
+//  update() {
+//    var current = Date.now() / 1000;
+//    this.delta = current - this.previous;
+//    this.previous = current;
+//
+//    this.runTime += this.delta;
+//
+//    requestAnimationFrame(this.update.bind(this));
+//  }
+//}
+//
+//module.exports = Game;
 
-    var len = this.listeners[event].length;
-    for (let i = 0; i < len; ++i) {
-      if (typeof this.listeners[event][i] === 'function') {
-        this.listeners[event][i](data);
-      }
-    }
-  }
 
-  on(event, callback) {
-    if (typeof this.listeners[event] === 'undefined') {
-      this.listeners[event] = [];
-    }
-    this.listeners[event].push(callback);
-  }
-}
 
-var event = new EventEmitter();
-
-class Entity {
-  constructor() {
-    this.id = Math.random() * 1000;
-    event.emit('entityCreated', {id: this.id});
-  }
-
-  addComponent(component) {
-    this[component.name] = component;
-
-    event.emit('componentAdded', {entity: this, component: component.name});
-
-    return this;
-  }
-
-  removeComponent(component) {
-    this[component] = undefined;
-    delete this[component];
-
-    event.emit('componentAdded', {entity: this, component: component});
-
-    return this;
-  }
-}
-
-class System {
-  update() {
-  }
-}
-
-class RenderSystem {
-  constructor() {
-    stage = new PIXI.Container();
-    this.renderer = PIXI.autoDetectRenderer(
-      window.innerWidth, window.innerHeight, { antialias: false }
-    );
-    document.body.appendChild(this.renderer.view);
-
-    this.updateDelta = 0;
-  }
-
-  update(delta) {
-    this.updateDelta += delta;
-
-    if (this.updateDelta >= netRate) {
-      this.updateDelta -= netRate;
-    }
-
-    var len = entities.length;
-    for (let i = 0; i < len; ++i) {
-      var entity = entities[i];
-      if (entity.render && entity.position && entity.previousPosition) {
-        var pos = entity.position;
-        var prevPos = entity.previousPosition;
-        var renderPos = entity.render.sprite.position;
-
-        entity.interp += delta;
-
-        renderPos.x = prevPos.x + (pos.x - prevPos.x) * (entity.interp / netRate);
-        renderPos.y = prevPos.y + (pos.y - prevPos.y) * (entity.interp / netRate);
-      }
-    }
-
-    this.renderer.render(stage);
-  }
-}
-
-var socket = io.connect('http://dumtard.com:9191');
-
-class Network {
-  constructor() {
-    this.tickRate = 0.03125;
-  }
-
-  send(event, data) {
-    socket.emit(event, data);
-  }
-
-  on(event, callback) {
-    socket.on(event, callback);
-  }
-}
-
-var network = new Network();
-
+var Network = require('../Client/Network');
+var RenderSystem = require('../Client/RenderSystem');
+var InterpolationSystem = require('../Client/InterpolationSystem');
+var NetworkSystem = require('../Client/NetworkSystem');
+var Entity = require('../Shared/Entity');
 var Components = require('../Shared/Components');
+
+var EntityManager = require('../Shared/EntityManager');
 
 var PositionComponent = Components.position;
 var PreviousPositionComponent = Components.previousPosition;
 var VelocityComponent = Components.velocity;
 var RenderComponent = Components.render;
+var InputBufferComponent = Components.inputBuffer;
 
-var entities = [];
-var stage;
+function createEntity() {
+}
 
-var keyboard = {};
-//var inputs = [];
-//var inputID = 1;
-
-var netRate = 0.1;
-var delta = 0;
-var previous = Date.now() / 1000;
-var updateDelta = 0;
-var netUpdate = 0;
-var sendDelta = 0;
-var runTime = 0;
-var tick = 0;
-
-window.addEventListener('keydown', (event) => {
-  keyboard[event.keyCode] = true;
-});
-
-window.addEventListener('keyup', (event) => {
-  keyboard[event.keyCode] = false;
-});
-
+/**
+ * The main game class
+ * @class
+ */
 class Game {
+  /**
+   * @constructor
+   */
   constructor() {
     this.loadPIXI('3.0.8').then(() => {
-      this.renderSystem = new RenderSystem();
-
       this.initialize();
     });
   }
 
+  /**
+   * Initializes the game class, called once on construction after pixi has
+   * been loaded.
+   */
   initialize() {
-    var entity = new Entity()
-    .addComponent(new PositionComponent({x: 10, y: 10}))
-    .addComponent(new PreviousPositionComponent({x: 10, y: 10}))
-    .addComponent(new VelocityComponent({x: 0, y: 0}))
-    .addComponent(new RenderComponent({sprite: new PIXI.Container()}));
-    entity.history = [];
+    this.delta = 0;
+    this.tick = 0;
+    this.runTime = 0;
+    this.updateDelta = 0;
+    this.previous = Date.now() / 1000;
 
-    var square = new PIXI.Graphics();
-    square.lineStyle(2, 0x0000FF, 1);
-    square.drawRect(0, 0, 100, 100);
-    entity.render.sprite.addChild(square);
+    this.renderSystem = new RenderSystem();
+    this.interpolationSystem = new InterpolationSystem();
+    this.networkSystem = new NetworkSystem();
 
-    stage.addChild(entity.render.sprite);
+    this.entityManager = new EntityManager();
 
-    window.entity = entity;
+    Network.on('createEntity', (data) => {
+      var entity = this.entityManager.createEntity(data.id);
 
-    entities.push(entity);
+      for (let component in data) {
+        if (component === 'id') {
+          continue;
+        }
 
-    // Handle the state coming back from the server
-    network.on('state', (data) => {
-      entity.history.push({tick: data.tick, time: Date.now(),
-                          x: data.position.x, y: data.position.y});
-
-      var removeLength = 0;
-      while (entity.history[removeLength].time < Date.now() - 1000) {
-        removeLength++;
+        this.entityManager.addComponent(entity, component, data[component]);
       }
-      if (removeLength) {
-        entity.history.splice(0, removeLength);
+      this.entityManager.addComponent(entity, 'render', {
+        sprite: new PIXI.Container()
+      }).addComponent(entity, 'inputBuffer', {
+        history: [],
+        tick: 0
+      }).addComponent(entity, 'interpolation', {
+        component: 'position',
+        from: {x: 10, y: 10},
+        to: {x: 10, y: 10},
+        delta: 0,
+        duration: 1
+      });
+
+      var square = new PIXI.Graphics();
+      square.lineStyle(2, 0x0000FF, 1);
+      square.drawRect(0, 0, 100, 100);
+      entity.render.sprite.addChild(square);
+
+      if (entity.id === 1) {
+        this.renderSystem.addChild(entity);
       }
-
-      //entity.position.x = data.position.x;
-      //entity.position.y = data.position.y;
-
-      //var lastProcessed = data.id;
-      //var inputIndex = 0;
-
-      //len = tick - data.id;
-      //for (let i = 0; i < len; ++i) {
-      //  var input = inputs[inputIndex];
-
-      //  //gravity system
-      //  entity.velocity.y += 20;
-
-      //  //input system
-      //  entity.velocity.x = 0;
-
-      //  if (input && input.id === lastProcessed + 1) {
-      //    inputIndex++;
-      //    if (input[65]) {
-      //      entity.velocity.x = -200;
-      //    } else if (input[68]) {
-      //      entity.velocity.x = 200;
-      //    }
-      //    if (input[32]) {
-      //      entity.velocity.y = -300;
-      //    }
-      //  }
-      //  entity.position.x += entity.velocity.x * network.tickRate;
-      //  entity.position.y += entity.velocity.y * network.tickRate;
-
-      //  //collision system
-      //  if (entity.position.y > 400) {
-      //    entity.position.y = 400;
-      //    entity.velocity.y =  0;
-      //  }
-      //  lastProcessed++;
-      //}
     });
 
+    Network.on('disconnect', (data) => {
+      for (let i = 0, len = this.entityManager.entities.length; i < len; ++i) {
+        this.renderSystem.removeChild(this.entityManager.entities[i]);
+      }
+      this.entityManager.removeAllEntities();
+    });
+
+    // Handle the state coming back from the server
+    Network.on('state', (data) => {
+      for (let i = 0, len = data.length; i < len; ++i) {
+        var entity = this.entityManager.getEntity(data[i].id);
+
+        entity.inputBuffer.history.push({tick: data[i].tick, time: Date.now(),
+                            x: data[i].position.x, y: data[i].position.y});
+
+        var removeLength = 0;
+        while (entity.inputBuffer.history[removeLength].time < Date.now() - 1000) {
+          removeLength++;
+        }
+        if (removeLength) {
+          entity.inputBuffer.history.splice(0, removeLength);
+        }
+      }
+    });
+
+    var fps = document.createElement('div');
+    fps.id = 'fpsCounter';
+    fps.style.position = 'absolute';
+    fps.style.top = '0px';
+    fps.style.left = '0px';
+    fps.style.color = 'white';
+    document.body.appendChild(fps);
+
+    window.setInterval(() => {
+      var ele = document.getElementById('fpsCounter');
+      ele.innerHTML = (1/this.delta).toFixed(2) + 'fps<br>' +
+        this.delta.toFixed(3) + 's';
+    }, 1000);
+
     requestAnimationFrame(this.update.bind(this));
   }
 
+  /**
+   * Function that runs every frame, runs before physics
+   * @param {number} delta - The time since the last frame
+   */
+  updateNetwork(delta) {
+    this.networkSystem.update(delta, this.entityManager.entities);
+  }
+
+  /**
+   * Function that runs every frame, will only perform actions every tick
+   * @param {number} delta - The time since the last frame
+   */
+  updatePhysics(delta) {
+    this.updateDelta += delta;
+
+    while (this.updateDelta >= Network.tickRate) {
+      this.updateDelta -= Network.tickRate;
+
+      this.tick++;
+    }
+  }
+
+  /**
+   * Function that runs every frame, runs after physics
+   * @param {number} delta - The time since the last frame
+   */
+  render(delta) {
+    this.interpolationSystem.update(delta, this.entityManager.entities);
+    this.renderSystem.update(delta, this.entityManager.entities);
+  }
+
+  /**
+   * Main update function calls all other update functions in the correct order
+   */
   update() {
     var current = Date.now() / 1000;
-    delta = current - previous;
-    previous = current;
+    this.delta = current - this.previous;
+    this.previous = current;
 
-    runTime += delta;
-    updateDelta += delta;
-    netUpdate += delta;
-    sendDelta += delta;
+    this.runTime += this.delta;
 
-    if (netUpdate >= netRate && entity.history.length > 5) {
-      netUpdate -= netRate;
+    this.updateNetwork(this.delta);
+    this.updatePhysics(this.delta);
+    this.render(this.delta);
 
-      var data = entity.history.shift();
-
-      entity.previousPosition.x = entity.position.x;
-      entity.previousPosition.y = entity.position.y;
-      entity.previousTick = entity.tick || data.tick;
-      entity.interp = netUpdate;
-
-      entity.position.x = data.x;
-      entity.position.y = data.y;
-      entity.tick = data.tick;
-
-      netRate = (entity.tick - entity.previousTick) * network.tickRate;
-
-    } else if (entity.history.length <= 5) {
-      netUpdate = 0;
-    }
-
-    while (updateDelta >= network.tickRate) {
-      updateDelta -= network.tickRate;
-
-      //gravity system
-      //entity.velocity.y += 20;
-
-      //input system
-      //entity.velocity.x = 0;
-      //var input = {};
-      //if (keyboard[65]) {
-      //  input[65] = true;
-      //  entity.velocity.x = -100;
-      //} else if (keyboard[68]) {
-      //  input[68] = true;
-      //  entity.velocity.x = 100;
-      //}
-      //if (entity.grounded && keyboard[32]) {
-      //  input[32] = true;
-      //  entity.velocity.y = -300;
-      //  entity.grounded = false;
-      //}
-
-      //movement system
-      //entity.previousPosition.x = entity.position.x;
-      //entity.previousPosition.y = entity.position.y;
-      //entity.position.x += entity.velocity.x * network.tickRate;
-      //entity.position.y += entity.velocity.y * network.tickRate;
-
-      //collision system
-      //if (entity.position.y > 200) {
-      //  entity.position.y = 200;
-      //  entity.velocity.y =  0;
-      //  entity.grounded = true;
-      //}
-
-      //if (Object.keys(input).length > 0) {
-      //  input.id = tick;
-      //  inputs.push(input);
-      //}
-
-      tick++;
-    }
-
-    //if (sendDelta >= 0.1 && inputs.length > 0) {
-    //  sendDelta -= 0.1;
-
-    //  network.send('keys', inputs);
-    //}
-    //console.log('-----' + delta + '-----');
-
-    this.renderSystem.update(delta);
     requestAnimationFrame(this.update.bind(this));
   }
 
+  /**
+   * Loads the given version of pixi off of cloudflare CDN
+   * @param {string} version - The version to load
+   * @param {function} callback - Callback after pixi has been loaded
+   */
   loadPIXI(version, callback) {
     return new Promise((resolve, reject) => {
       var pixiScript = document.createElement('script');

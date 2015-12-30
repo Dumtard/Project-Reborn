@@ -4,4 +4,5 @@ var Game = require('../Client/Game');
     'use strict';
 
     var game = new Game();
+    window.game = game;
 })();
