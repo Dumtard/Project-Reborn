@@ -70,9 +70,6 @@ var VelocityComponent = Components.velocity;
 var RenderComponent = Components.render;
 var InputBufferComponent = Components.inputBuffer;
 
-function createEntity() {
-}
-
 /**
  * The main game class
  * @class
@@ -116,15 +113,12 @@ class Game {
       }
       this.entityManager.addComponent(entity, 'render', {
         sprite: new PIXI.Container()
-      }).addComponent(entity, 'inputBuffer', {
-        history: [],
-        tick: 0
       }).addComponent(entity, 'interpolation', {
         component: 'position',
         from: {x: 10, y: 10},
         to: {x: 10, y: 10},
         delta: 0,
-        duration: 1
+        duration: 0.3 //This has to stay greater than 0.3 to ensure that enough data has been retrieved from the server before it starts interpolating
       });
 
       var square = new PIXI.Graphics();
@@ -132,9 +126,7 @@ class Game {
       square.drawRect(0, 0, 100, 100);
       entity.render.sprite.addChild(square);
 
-      if (entity.id === 1) {
-        this.renderSystem.addChild(entity);
-      }
+      this.renderSystem.addChild(entity);
     });
 
     Network.on('disconnect', (data) => {
@@ -148,6 +140,10 @@ class Game {
     Network.on('state', (data) => {
       for (let i = 0, len = data.length; i < len; ++i) {
         var entity = this.entityManager.getEntity(data[i].id);
+
+        if (!entity) {
+          continue;
+        }
 
         entity.inputBuffer.history.push({tick: data[i].tick, time: Date.now(),
                             x: data[i].position.x, y: data[i].position.y});
@@ -183,7 +179,7 @@ class Game {
    * Function that runs every frame, runs before physics
    * @param {number} delta - The time since the last frame
    */
-  updateNetwork(delta) {
+  preUpdate(delta) {
     this.networkSystem.update(delta, this.entityManager.entities);
   }
 
@@ -205,8 +201,15 @@ class Game {
    * Function that runs every frame, runs after physics
    * @param {number} delta - The time since the last frame
    */
+  postUpdate(delta) {
+  }
+
+  /**
+   * Function that runs every frame, runs after physics
+   * @param {number} delta - The time since the last frame
+   */
   render(delta) {
-    this.interpolationSystem.update(delta, this.entityManager.entities);
+    //this.interpolationSystem.update(delta, this.entityManager.entities);
     this.renderSystem.update(delta, this.entityManager.entities);
   }
 
@@ -220,8 +223,9 @@ class Game {
 
     this.runTime += this.delta;
 
-    this.updateNetwork(this.delta);
+    this.preUpdate(this.delta);
     this.updatePhysics(this.delta);
+    this.postUpdate(this.delta);
     this.render(this.delta);
 
     requestAnimationFrame(this.update.bind(this));

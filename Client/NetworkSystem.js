@@ -18,9 +18,12 @@ class InterpolationSystem extends System {
    * @param {number} delta - Time since last frame
    */
   update(delta, entities) {
-    var len = entities.length;
-    for (let i = 0; i < len; ++i) {
+    for (let i = 0, len = entities.length; i < len; ++i) {
       var entity = entities[i];
+
+      if (!entity.interpolation || !entity.inputBuffer) {
+        continue;
+      }
 
       entity.interpolation.delta += delta;
 
@@ -28,35 +31,39 @@ class InterpolationSystem extends System {
       // is interpolating between.
       // First time it's got at least 3 entries
       // Every other time when the delta is greater than the time
-      if (entity.interpolation.delta >= entity.interpolation.duration &&
-          entity.inputBuffer.history.length > 3
-      ) {
+      if (entity.interpolation.delta >= entity.interpolation.duration) {
         entity.interpolation.delta -= entity.interpolation.duration;
 
-        var data = entity.inputBuffer.history.shift();
+        var from, to;
+        for (let j = 0, len2 = entity.inputBuffer.history.length; j < len2; ++j) {
+          if (entity.inputBuffer.history[j].time + 300 > Date.now() && entity.inputBuffer.previousTick !== entity.inputBuffer.history[j].tick) {
+            from = entity.inputBuffer.history[j];
+            to = entity.inputBuffer.history[j+1];
+            entity.inputBuffer.previousTick = from.tick;
 
-        // This is for the first time, set the tick to the data.tick, gets the
-        // tick from the server
-        if (!entity.inputBuffer.tick) {
-          entity.inputBuffer.tick = data.tick;
+            break;
+          }
+        }
+
+        if (!from || !to) {
+          continue;
         }
 
         // Difference in time between previous tick and current tick for
         // interpolation.
-        entity.interpolation.duration = (data.tick - entity.inputBuffer.tick) * Network.tickRate;
-        entity.inputBuffer.tick = data.tick;
-
+        entity.interpolation.duration = (to.tick - from.tick) * Network.tickRate;
 
         // Update the from and to values
-        entity.interpolation.from.x = entity.interpolation.to.x;
-        entity.interpolation.from.y = entity.interpolation.to.y;
+        entity.interpolation.from.x = from.x;
+        entity.interpolation.from.y = from.y;
 
-        entity.interpolation.to.x = data.x;
-        entity.interpolation.to.y = data.y;
-
-      } else if (entity.inputBuffer.history.length <= 3) {
-        entity.interpolation.delta = 0;
+        entity.interpolation.to.x = to.x;
+        entity.interpolation.to.y = to.y;
       }
+
+      // Linear interplotion between the 2 data points.
+      entity.position.x = entity.interpolation.from.x + (entity.interpolation.to.x - entity.interpolation.from.x) * (entity.interpolation.delta / entity.interpolation.duration);
+      entity.position.y = entity.interpolation.from.y + (entity.interpolation.to.y - entity.interpolation.from.y) * (entity.interpolation.delta / entity.interpolation.duration);
     }
   }
 }

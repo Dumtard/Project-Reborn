@@ -22,11 +22,14 @@
       let entity = entityManager.createEntity();
 
       entityManager.addComponent(entity, 'position', {
-        x: 20 * i + 10,
+        x: 210 * i + 10,
         y: 10
       }).addComponent(entity, 'velocity', {
         x: 100,
         y: 0
+      }).addComponent(entity, 'inputBuffer', {
+        history: [],
+        tick: tick
       });
 
       socket.emit('createEntity', entity);
@@ -67,7 +70,7 @@
           entity.velocity.y += 20;
 
           if (Math.random() < 0.03 && entity.position.y === 200) {
-            entity.velocity.y = -300;
+            //entity.velocity.y = -300;
           }
 
           //movement system
@@ -75,7 +78,7 @@
           entity.position.y += entity.velocity.y * 0.03125;
 
           //if (entity.id === 1) {
-          //  Log(entity.position.y);
+          //  Log(entity.position);
           //}
 
           //collision system
