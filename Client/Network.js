@@ -11,6 +11,8 @@ class Network {
 
   on(event, callback) {
     socket.on(event, callback);
+
+    return this;
   }
 }
 

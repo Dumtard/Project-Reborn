@@ -1,74 +1,12 @@
-//var EntityManager = require('../Shared/EntityManager');
-//
-//class Game {
-//  /**
-//   * @constructor
-//   */
-//  constructor() {
-//    window.onload = () => {
-//      this.initialize();
-//    };
-//  }
-//
-//  /**
-//   * Initializes the game class, called once on construction after pixi has
-//   * been loaded.
-//   */
-//  initialize() {
-//    this.delta = 0;
-//    this.runTime = 0;
-//    this.previous = Date.now() / 1000;
-//
-//    this.entityManager = new EntityManager();
-//
-//    var fps = document.createElement('div');
-//    fps.id = 'fpsCounter';
-//    fps.style.position = 'absolute';
-//    fps.style.top = '0px';
-//    fps.style.left = '0px';
-//    document.body.appendChild(fps);
-//
-//    window.setInterval(() => {
-//      var ele = document.getElementById('fpsCounter');
-//      ele.innerHTML = (1/this.delta).toFixed(2) + 'fps<br>' +
-//        this.delta.toFixed(3) + 's';
-//    }, 1000);
-//
-//    requestAnimationFrame(this.update.bind(this));
-//  }
-//
-//  /**
-//   * Main update function calls all other update functions in the correct order
-//   */
-//  update() {
-//    var current = Date.now() / 1000;
-//    this.delta = current - this.previous;
-//    this.previous = current;
-//
-//    this.runTime += this.delta;
-//
-//    requestAnimationFrame(this.update.bind(this));
-//  }
-//}
-//
-//module.exports = Game;
-
-
-
 var Network = require('../Client/Network');
 var RenderSystem = require('../Client/RenderSystem');
 var InterpolationSystem = require('../Client/InterpolationSystem');
 var NetworkSystem = require('../Client/NetworkSystem');
+var InputSystem = require('../Client/InputSystem');
 var Entity = require('../Shared/Entity');
 var Components = require('../Shared/Components');
 
 var EntityManager = require('../Shared/EntityManager');
-
-var PositionComponent = Components.position;
-var PreviousPositionComponent = Components.previousPosition;
-var VelocityComponent = Components.velocity;
-var RenderComponent = Components.render;
-var InputBufferComponent = Components.inputBuffer;
 
 /**
  * The main game class
@@ -79,30 +17,18 @@ class Game {
    * @constructor
    */
   constructor() {
-    this.loadPIXI('3.0.8').then(() => {
-      this.initialize();
-    });
-  }
-
-  /**
-   * Initializes the game class, called once on construction after pixi has
-   * been loaded.
-   */
-  initialize() {
     this.delta = 0;
     this.tick = 0;
     this.runTime = 0;
     this.updateDelta = 0;
     this.previous = Date.now() / 1000;
 
-    this.renderSystem = new RenderSystem();
-    this.interpolationSystem = new InterpolationSystem();
-    this.networkSystem = new NetworkSystem();
-
     this.entityManager = new EntityManager();
 
     Network.on('createEntity', (data) => {
       var entity = this.entityManager.createEntity(data.id);
+
+      console.log("CreateEntity: " + data.id);
 
       for (let component in data) {
         if (component === 'id') {
@@ -122,16 +48,26 @@ class Game {
       });
 
       var square = new PIXI.Graphics();
-      square.lineStyle(2, 0x0000FF, 1);
+      if (entity.input) {
+        square.lineStyle(2, 0xFF0000, 1);
+      } else {
+        square.lineStyle(2, 0x0000FF, 1);
+      }
       square.drawRect(0, 0, 100, 100);
       entity.render.sprite.addChild(square);
 
-      this.renderSystem.addChild(entity);
-    });
-
-    Network.on('disconnect', (data) => {
+      RenderSystem.addChild(entity);
+    }).on('removeEntity', (data) => {
       for (let i = 0, len = this.entityManager.entities.length; i < len; ++i) {
-        this.renderSystem.removeChild(this.entityManager.entities[i]);
+        if (this.entityManager.entities[i].id === data.id) {
+          RenderSystem.removeChild(this.entityManager.entities[i]);
+          break;
+        }
+      }
+      this.entityManager.removeEntity(data);
+    }).on('disconnect', (data) => {
+      for (let i = 0, len = this.entityManager.entities.length; i < len; ++i) {
+        RenderSystem.removeChild(this.entityManager.entities[i]);
       }
       this.entityManager.removeAllEntities();
     });
@@ -180,7 +116,8 @@ class Game {
    * @param {number} delta - The time since the last frame
    */
   preUpdate(delta) {
-    this.networkSystem.update(delta, this.entityManager.entities);
+    InputSystem.update(delta, this.entityManager.entities);
+    NetworkSystem.update(delta, this.entityManager.entities);
   }
 
   /**
@@ -209,8 +146,7 @@ class Game {
    * @param {number} delta - The time since the last frame
    */
   render(delta) {
-    //this.interpolationSystem.update(delta, this.entityManager.entities);
-    this.renderSystem.update(delta, this.entityManager.entities);
+    RenderSystem.update(delta, this.entityManager.entities);
   }
 
   /**
@@ -229,25 +165,6 @@ class Game {
     this.render(this.delta);
 
     requestAnimationFrame(this.update.bind(this));
-  }
-
-  /**
-   * Loads the given version of pixi off of cloudflare CDN
-   * @param {string} version - The version to load
-   * @param {function} callback - Callback after pixi has been loaded
-   */
-  loadPIXI(version, callback) {
-    return new Promise((resolve, reject) => {
-      var pixiScript = document.createElement('script');
-      pixiScript.async = true;
-      pixiScript.src = '//cdnjs.cloudflare.com/ajax/libs/pixi.js/' +
-        version + '/pixi.js';
-
-        pixiScript.addEventListener('load', (event) => {
-          resolve();
-        });
-        document.head.appendChild(pixiScript);
-    });
   }
 }
 

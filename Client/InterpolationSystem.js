@@ -79,4 +79,4 @@ class InterpolationSystem extends System {
   //}
 }
 
-module.exports = InterpolationSystem;
+module.exports = new InterpolationSystem();

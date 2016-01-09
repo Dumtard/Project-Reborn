@@ -156,12 +156,10 @@
     isValidEntity(entity) {
       var retValue = false;
 
-      if (entity instanceof Entity) {
-        for (let i = 0, len = this.entities.length; i< len; ++i) {
-          if (entity.id === this.entities[i].id) {
-            retValue = true;
-            break;
-          }
+      for (let i = 0, len = this.entities.length; i < len; ++i) {
+        if (entity.id === this.entities[i].id) {
+          retValue = true;
+          break;
         }
       }
 

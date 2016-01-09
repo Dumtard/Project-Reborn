@@ -39,7 +39,7 @@ gulp.task('server', function() {
 
 gulp.task('watch', function() {
     gulp.watch(['./Client/**/*.js', './Shared/**/*.js'], ['build']);
-    gulp.watch(['./Server/**/*.js'], ['server']);
+    gulp.watch(['./Server/**/*.js', './Shared/**/*.js'], ['server']);
 });
 
 gulp.task('default', ['server', 'watch']);

@@ -6,8 +6,6 @@
 
   var EntityManager = require('../Shared/EntityManager');
 
-  var entities = [];
-
   var delta = 0;
   var previous = Date.now() / 1000;
   var runTime = 0;
@@ -17,30 +15,67 @@
 
   var entityManager = new EntityManager();
 
+  var sockets = [];
+
   io.on('connection', (socket) => {
-    for (let i = 0, len = 1; i < len; ++i) {
-      let entity = entityManager.createEntity();
+    let entity = entityManager.createEntity();
 
-      entityManager.addComponent(entity, 'position', {
-        x: 210 * i + 10,
-        y: 10
-      }).addComponent(entity, 'velocity', {
-        x: 100,
-        y: 0
-      }).addComponent(entity, 'inputBuffer', {
-        history: [],
-        tick: tick
-      });
+    entityManager.addComponent(entity, 'position', {
+      x: 10,
+      y: 10
+    }).addComponent(entity, 'velocity', {
+      x: 100,
+      y: 0
+    }).addComponent(entity, 'inputBuffer', {
+      history: [],
+      tick: tick
+    });
 
-      socket.emit('createEntity', entity);
+    for (let i = 0, len = sockets.length; i < len; ++i) {
+      sockets[i].emit('createEntity', entity);
+    }
 
-      entity.socket = socket;
+    entityManager.addComponent(entity, 'input', {
+      history: []
+    });
+
+    socket.emit('createEntity', entity);
+
+    entityManager.removeComponent(entity, 'input');
+
+    sockets.push(socket);
+
+    for (let i = 0, len = entityManager.entities.length; i < len; ++i) {
+      if (entity.id !== entityManager.entities[i].id) {
+        socket.emit('createEntity', entityManager.entities[i]);
+      }
     }
 
     socket.on('keys', (data) => {
+      var entity = entityManager.getEntity(data.id);
+
+      entity.velocity.x = 0;
+      if (data.keys[65] && data.keys[68]) {
+      } else if (data.keys[65]) {
+        entity.velocity.x = -100;
+      } else if (data.keys[68]) {
+        entity.velocity.x = 100;
+      }
+      if (data.keys[32]) {
+        entity.velocity.y = -300;
+      }
     })
     .on('disconnect', (data) => {
-       entityManager.removeAllEntities();
+      entityManager.removeEntity(entity);
+
+      let index = 0;
+      for (let i = 0, len = sockets.length; i < len; ++i) {
+        if (socket.id === sockets[i].id) {
+          index = i;
+        } else {
+          sockets[i].emit('removeEntity', entity);
+        }
+      }
     });
   });
 
@@ -121,11 +156,8 @@
         // Send the state to every client
         // This should not be based on entity list, needs to be based on
         // a list of connected clients
-        for (var i = 0; i < entityManager.entities.length; i++) {
-          var entity = entityManager.entities[i];
-
-          entity.socket.emit('state', state);
-          break;
+        for (var i = 0, len = sockets.length; i < len; ++i) {
+          sockets[i].emit('state', state);
         }
       }
     }

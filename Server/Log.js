@@ -1,6 +1,11 @@
 var fs = require('fs');
 
 function Log(message, sync) {
+  if (typeof window !== 'undefined') {
+    console.log(message);
+    return;
+  }
+
   function pad(number, width) {
     var padding = "0".repeat(width);
     number = (padding + number).slice(-width);

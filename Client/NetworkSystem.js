@@ -5,7 +5,7 @@ var Network = require('../Client/Network');
  * Interpolation System
  * @class
  */
-class InterpolationSystem extends System {
+class NetworkingSystem extends System {
   /**
    * @constructor
    */
@@ -68,4 +68,4 @@ class InterpolationSystem extends System {
   }
 }
 
-module.exports = InterpolationSystem;
+module.exports = new NetworkingSystem();

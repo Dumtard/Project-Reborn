@@ -43,4 +43,4 @@ class RenderSystem extends System {
   }
 }
 
-module.exports = RenderSystem;
+module.exports = new RenderSystem();
